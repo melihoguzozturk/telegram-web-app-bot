@@ -11,12 +11,15 @@
     <meta name="robots" content="noindex,nofollow" />
     <title></title>
     <script src="https://telegram.org/js/telegram-web-app.js?1"></script>
-    <script src="https://unpkg.com/html5-qrcode@2.0.9/dist/html5-qrcode.min.js"></script>
-    <style>
-        * {
-            box-sizing: border-box;
+    <script>
+        function setThemeClass() {
+            document.documentElement.className = Telegram.WebApp.colorScheme;
         }
+        Telegram.WebApp.onEvent('themeChanged', setThemeClass);
+        setThemeClass();
 
+    </script>
+    <style>
         body {
             font-family: sans-serif;
             background-color: var(--tg-theme-bg-color, #ffffff);
@@ -173,79 +176,63 @@
         small {
             font-size: 12px;
         }
-
-        .centerdiv {
-            min-width: 220px;
-            margin: auto;
-        }
-        #qr-reader__dashboard_section_swaplink {
-            visibility: hidden;
-        }
-        #qr-reader > :first-child {
-            position: absolute;
-            z-index: 0;
-        }
-        #qr-reader__scan_region {
-            background-color: #222222;
-            z-index: 1;
-            position: relative;
-        }
-
     </style>
 </head>
 
-<body onload="startScan()">
+<body>
 
 <section>
-    <div id="qr-reader" class="centerdiv"></div>
+    <h1 id="greeting"></h1>
+
+    <div id="buttons">
+        <button onclick="webviewExpand();">Expand Webview</button>
+        <small>(The window goes fullscreen)</small>
+        <button onclick="toggleMainButton(this);">Hide Main Button</button>
+        <small>(It hides/shows main button)</small>
+        <button id="btnTime" onclick="sendTime(10);">Send time</button>
+        <small>(The bot will recieve a message with filled <code>web_app_data</code> field)</small>
+    </div>
+
+    <h3>Test links</h3>
+    <ul>
+        <li><a href="?nextpage=1">Regular link #1</a> (opens inside webview)</li>
+        <li><a href="https://telegram.org/" target="_blank">target="_blank" link</a> (opens outside webview)</li>
+        <li><a href="javascript:window.open('https://telegram.org/');">window.open() link</a> (opens outside
+            webview)</li>
+        <li><a href="https://t.me/like">LikeBot t.me link</a> (opens inside Telegram app)</li>
+        <li><a href="tg://resolve?domain=vote">VoteBot tg:// link</a> (does not open)</li>
+    </ul>
+
+    <h3>Test permissions</h3>
+    <ul>
+        <li>
+            <a href="javascript:;" onclick="return requestLocation();">Request Location</a>
+            <span id="locationData"></span>
+        </li>
+        <li>
+            <a href="javascript:;" onclick="return requestVideo();">Request Video</a>
+            <span id="videoData"></span>
+        </li>
+        <li>
+            <a href="javascript:;" onclick="return requestAudio();">Request Audio</a>
+            <span id="audioData"></span>
+        </li>
+    </ul>
+
+    <h3>Init Data: </h3>
+    <pre id="initData"></pre>
+    <h3>Init Data (unsafe): </h3>
+    <pre id="initDataUnsafe"></pre>
 </section>
 
 <script type="application/javascript">
     Telegram.WebApp.ready();
 
-    function setThemeClass() {
-        document.documentElement.className = Telegram.WebApp.colorScheme;
-    }
-    function onScanSuccess(decodedText, decodedResult) {
-        console.log(`Code scanned = ${decodedText}`, decodedResult);
-        if(initData){
-            sendTimeAnswerCallback(decodedText);
-        }else{
-            Telegram.WebApp.sendData(decodedText.toString());
-        }
-    }
-    function startScan(){
-        let config = {
-            fps: 10,
-            qrbox: 250,
-            rememberLastUsedCamera: true
-        }
-        var html5QrcodeScanner = new Html5QrcodeScanner(
-            "qr-reader",
-            config
-        );
-        html5QrcodeScanner.render(onScanSuccess);
-    }
-
-    Telegram.WebApp.onEvent('themeChanged', setThemeClass);
-    setThemeClass();
-
     const initData = Telegram.WebApp.initData || '';
     const initDataUnsafe = Telegram.WebApp.initDataUnsafe || {};
-    const urlParams = new URLSearchParams(initData);
-    const queryId = urlParams.get('query_id')
 
-    const message2 = {
-        type:'article',
-        id:'6f19e31f-8e51-11de-865c-00215af013a6',
-        title:'test article',
-        query_id: queryId,
-        input_message_content:{
-            message_text:'test from web app'
-        }
-    }
-
-    document.querySelector('#initData').innerHTML = initData;
+    document.querySelector('#greeting').innerHTML = `Hi, ${initDataUnsafe.user.first_name}!`;
+    document.querySelector('#initData').innerHTML = JSON.stringify(initData, null, 2);
     document.querySelector('#initDataUnsafe').innerHTML = JSON.stringify(initDataUnsafe, null, 2);
     document.querySelector('#themeData').html(JSON.stringify(Telegram.WebApp.themeParams, null, 2));
 
@@ -277,27 +264,11 @@
         Telegram.WebApp.close();
     }
 
-    function uuidv4() {
-        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
-            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-        );
-    }
-
-    function sendTimeAnswerCallback(text){
-        message2.input_message_content.message_text = text;
-        message2.id = uuidv4();
-        fetch('https://telegram-bot-api.agroprosperis.com/web-app',{
-            method: 'POST',
-            headers: {
-                'Content-type':'application/json',
-            },
-            body: JSON.stringify(message2)
-        })
-
-    }
-
-    function sendQr(text) {
-        Telegram.WebApp.sendData(text);
+    function sendTime(spam) {
+        const repeat = spam ? 10 : 1;
+        for (let i = 0; i < repeat; i++) {
+            Telegram.WebApp.sendData(new Date().toString());
+        }
     }
 
     function requestLocation() {
